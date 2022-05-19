@@ -1,5 +1,9 @@
 rr:
-	gcc main.c -o main
+	gcc main.c -o main.out
 
 run: rr
-	./main
+	./main.out
+
+clean: 
+	rm *.out 
+	rm vgcore.* 
