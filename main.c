@@ -18,6 +18,8 @@ const unsigned int PRIORITIES = High - Low;
 const unsigned int IO_EVT_TYPES = Printer - Disk;
 const unsigned int STATUSES = AcessingIO - Running;
 
+unsigned int INDEX = 0;
+
 typedef struct {
   short unsigned int pid;
   short unsigned int duration;
@@ -61,19 +63,48 @@ process_t generate_random_process() {
   return result;
 }
 
-void execute_process_queue() {}
+bool read_processes_from_csv(process_t *start) {
+  FILE *stream = fopen("process_table.csv", "r");
+  char *line;
+  size_t len = 1024;
+
+  if (stream != NULL) {
+    while (getline(&line, &len, stream) != -1) {
+      char *arrival_time = strtok(line, ",");
+      char *duration = strtok(NULL, ",");
+      char *priority = strtok(NULL, ",");
+
+      *(start + INDEX) = (process_t){.arrival_time = atoi(arrival_time),
+                                     .duration = atoi(duration),
+                                     .priority = atoi(priority),
+                                     .status = Stopped};
+      INDEX++;
+
+      strtok(NULL, ",\n");
+    }
+
+    fclose(stream);
+    return true;
+  } else
+    return false;
+}
+
+void generate_random_process_list(process_t *start) {
+  for (int i = 0; i < MAX_PROCESSES; i++) {
+    *(start + i) = generate_random_process();
+  }
+}
 
 int main(void) {
   printf("{{ Round Robin Emulator }}\n");
-
   process_t process_queue[MAX_PROCESSES];
-  for (int i = 0; i < MAX_PROCESSES; i++) {
-    process_queue[i] = generate_random_process();
-  }
+
+  if (!read_processes_from_csv(process_queue))
+    generate_random_process_list(process_queue);
 
   printf(">> Random Process List generated, printing proc data\n");
 
-  for (int i = 0; i < MAX_PROCESSES; i++) {
+  for (int i = 0; i < INDEX; i++) {
     print_process_info(&process_queue[i]);
   }
 
