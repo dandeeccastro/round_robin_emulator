@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 // ENUMS
 enum PROCESS_PRIORITIES { Low = 0, High };
@@ -50,23 +52,29 @@ void allocate_io_events_on_process(process_t *start, char *event);
 bool read_processes_from_csv(process_t *start);
 bool read_io_events_from_csv(process_t *start);
 void generate_random_process_list(process_t *start);
+void print_banner();
+void print_process_master_queue(process_t *queue_start);
+void round_robin(process_t *master_queue, bool high_prio);
+
+void spawn_emitter(process_t *master_queue);
+void spawn_workers(process_t *master_queue);
 
 int main(void) {
-  printf("{{ Round Robin Emulator }}\n");
-  process_t process_queue[MAX_PROCESSES];
+  process_t process_master_queue[MAX_PROCESSES];
 
-  if (!read_processes_from_csv(process_queue))
-    generate_random_process_list(process_queue);
+  print_banner();
+  if (!read_processes_from_csv(process_master_queue))
+    generate_random_process_list(process_master_queue);
 
-  read_io_events_from_csv(process_queue);
-  printf(">> Random Process List generated, printing proc data\n");
+  read_io_events_from_csv(process_master_queue);
+  print_process_master_queue(process_master_queue);
 
-  for (int i = 0; i < INDEX; i++) {
-    print_process_info(&process_queue[i]);
-  }
+  spawn_workers(process_master_queue);
 
   return 0;
 }
+
+void print_banner() { puts("{{ Round Robin Emulator }}"); }
 
 bool read_processes_from_csv(process_t *start) {
   FILE *process_source = fopen("process_table.csv", "r");
@@ -83,18 +91,6 @@ bool read_processes_from_csv(process_t *start) {
     return true;
   } else
     return false;
-}
-
-bool read_io_events_from_csv(process_t *start) {
-  FILE *io_evt_source = fopen("io_table.csv", "r");
-  char *line;
-  size_t len = 1024;
-
-  if (io_evt_source != NULL) {
-    while (getline(&line, &len, io_evt_source) != -1) {
-      allocate_io_events_on_process(start, line);
-    }
-  }
 }
 
 void allocate_process_on_master_queue(process_t *memory_pos, char *line) {
@@ -132,6 +128,20 @@ process_t generate_random_process() {
   return result;
 }
 
+bool read_io_events_from_csv(process_t *start) {
+  FILE *io_evt_source = fopen("io_table.csv", "r");
+  char *line;
+  size_t len = 1024;
+
+  if (io_evt_source != NULL) {
+    while (getline(&line, &len, io_evt_source) != -1) {
+      allocate_io_events_on_process(start, line);
+    }
+    return true;
+  }
+  return false;
+}
+
 void allocate_io_events_on_process(process_t *start, char *event) {
   const char *pid = strtok(event, ",");
   const char *type = strtok(NULL, ",");
@@ -146,6 +156,13 @@ void allocate_io_events_on_process(process_t *start, char *event) {
       (start + i)->total_io_events += 1;
       j++;
     }
+  }
+}
+
+void print_process_master_queue(process_t *queue_start) {
+  printf(">> Random Process List generated, printing proc data\n");
+  for (int i = 0; i < INDEX; i++) {
+    print_process_info(&queue_start[i]);
   }
 }
 
@@ -166,4 +183,32 @@ void print_process_info(process_t *proc) {
   printf(">> Priority: %s\n", priority);
   printf(">> Arrives at %i seconds\n", proc->arrival_time);
   printf(">> Has %i IO events\n\n", proc->total_io_events);
+}
+
+void spawn_workers(process_t *master_queue) {
+  bool is_high_priority_queue;
+  int PID;
+
+  if (fork()) {
+    puts("Parent leaves");
+    return;
+  } else if ((PID = fork())) {
+    puts("Low Prio Worker spawned sucessfully");
+    round_robin(master_queue, false);
+  } else {
+    puts("High Prio Worker spawned sucessfully");
+    round_robin(master_queue, true);
+  }
+}
+
+void round_robin(process_t *master_queue, bool high_prio) {
+  time_t start = time(NULL);
+  int remaining_processes = 0;
+
+  for (int i = 0; i < INDEX; i++)
+    if ((master_queue + i)->priority == (high_prio ? High : Low))
+      remaining_processes++;
+
+  printf("%s queue has %i processes to emulate\n", (high_prio ? "High" : "Low"),
+         remaining_processes);
 }
