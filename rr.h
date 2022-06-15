@@ -1,22 +1,17 @@
+#define MAX 10
 #define QUANTUM 2
-#define MAX_PROCESSES 1024
 
-enum STATUSES { Pending = 0, Running, Stopped, Finalized, QUEUE_END };
-enum IO_TYPES { Disk = 0, MagneticTape, Printer };
+enum STATUS { New = 0, Ready, Running, Interrupted, Done };
 
-typedef struct {
+typedef struct rr_process_t {
   int pid;
-  int arrival;
-  int duration;
   int status;
-  int arrived_at;
-  int quantum;
+  int duration;
+  int arrival; 
+  int time_left;
+  int runtime;
 } rr_process_t;
 
-typedef struct {
-  int pid;
-  int type;
-  int arrival;
-  int status;
-  int quantum;
-} rr_io_event_t;
+rr_process_t generateRandomProcess();
+int processesLeft(rr_process_t*);
+void runNextHigh(rr_process_t*, int);
