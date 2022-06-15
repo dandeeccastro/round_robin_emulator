@@ -1,5 +1,5 @@
 all: 
-	gcc main.c -o main.out 
+	gcc main.c -o main.out -lncurses
 
 run: 
 	./main.out 
